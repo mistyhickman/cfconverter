@@ -155,6 +155,9 @@ def health_check():
     return jsonify({'status': 'healthy', 'supported_languages': list(converter.supported_languages.keys())})
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+    
     # Check if OpenAI API key is set
     if not OPENAI_API_KEY:
         print("\n" + "="*50)
@@ -173,5 +176,4 @@ if __name__ == '__main__':
     print(f"📡 Server running at: http://localhost:5000")
     print(f"✅ OpenAI API key loaded successfully")
     
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    
