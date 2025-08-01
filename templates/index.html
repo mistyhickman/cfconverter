@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColdFusion Code Converter</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet">
+    <style>
+        .code-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .loading {
+            display: none;
+        }
+        .result-section {
+            display: none;
+        }
+        .drag-drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .drag-drop-area:hover, .drag-drop-area.dragover {
+            border-color: #007bff;
+            background-color: #e7f3ff;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">ColdFusion Code Converter</h1>
+                <p class="text-center text-muted mb-5">Convert your ColdFusion code to modern languages using AI</p>
+            </div>
+        </div>
+
+        <form id="converterForm">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Input ColdFusion Code</h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- File Upload Area -->
+                            <div class="mb-3">
+                                <label class="form-label">Upload ColdFusion File (Optional)</label>
+                                <div class="drag-drop-area" id="dragDropArea">
+                                    <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i>
+                                    <p>Drag & drop your .cfm, .cfc, or .cfml file here<br>or click to browse</p>
+                                    <input type="file" id="fileInput" name="file" accept=".cfm,.cfc,.cfml,.txt" style="display: none;">
+                                </div>
+                                <div class="file-info" id="fileInfo"></div>
+                            </div>
+
+                            <!-- Code Input Area -->
+                            <div class="mb-3">
+                                <label for="codeInput" class="form-label">Or paste your ColdFusion code:</label>
+                                <textarea 
+                                    class="form-control code-container" 
+                                    id="codeInput" 
+                                    name="code_input" 
+                                    rows="15" 
+                                    placeholder="Paste your ColdFusion code here..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Conversion Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="targetLanguage" class="form-label">Target Language:</label>
+                                <select class="form-select" id="targetLanguage" name="target_language" required>
+                                    <option value="">Select target language...</option>
+                                    {% for key, value in languages.items() %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="customPrompt" class="form-label">Additional Instructions (Optional):</label>
+                                <textarea 
+                                    class="form-control" 
+                                    id="customPrompt" 
+                                    name="custom_prompt" 
+                                    rows="4" 
+                                    placeholder="Any specific requirements or preferences for the conversion..."></textarea>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg" id="convertBtn">
+                                    <span class="convert-text">Convert Code</span>
+                                    <span class="loading">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        Converting...
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Results Section -->
+        <div class="row result-section" id="resultSection">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>Converted Code</h5>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="copyBtn">
+                            Copy to Clipboard
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <pre class="code-container"><code id="resultCode"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Section -->
+        <div class="row" id="errorSection" style="display: none;">
+            <div class="col-12">
+                <div class="alert alert-danger" role="alert">
+                    <h5>Error</h5>
+                    <p id="errorMessage"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center py-3 mt-5">
+        <div class="container">
+            <p class="text-muted mb-0">ColdFusion Code Converter - Powered by GPT AI</p>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <script>
+        // DOM elements
+        const form = document.getElementById('converterForm');
+        const convertBtn = document.getElementById('convertBtn');
+        const resultSection = document.getElementById('resultSection');
+        const errorSection = document.getElementById('errorSection');
+        const resultCode = document.getElementById('resultCode');
+        const errorMessage = document.getElementById('errorMessage');
+        const copyBtn = document.getElementById('copyBtn');
+        const fileInput = document.getElementById('fileInput');
+        const dragDropArea = document.getElementById('dragDropArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const codeInput = document.getElementById('codeInput');
+
+        // File drag and drop functionality
+        dragDropArea.addEventListener('click', () => fileInput.click());
+        
+        dragDropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dragDropArea.classList.add('dragover');
+        });
+
+        dragDropArea.addEventListener('dragleave', () => {
+            dragDropArea.classList.remove('dragover');
+        });
+
+        dragDropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dragDropArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            const allowedTypes = ['cfm', 'cfc', 'cfml', 'txt'];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            
+            if (allowedTypes.includes(fileExtension)) {
+                fileInfo.innerHTML = `<strong>Selected:</strong> ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                fileInfo.className = 'file-info text-success';
+                
+                // Read file content and populate textarea
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    codeInput.value = e.target.result;
+                };
+                reader.readAsText(file);
+            } else {
+                fileInfo.innerHTML = `<strong>Error:</strong> Please select a valid ColdFusion file (.cfm, .cfc, .cfml, .txt)`;
+                fileInfo.className = 'file-info text-danger';
+                fileInput.value = '';
+            }
+        }
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Show loading state
+            convertBtn.querySelector('.convert-text').style.display = 'none';
+            convertBtn.querySelector('.loading').style.display = 'inline-block';
+            convertBtn.disabled = true;
+            
+            // Hide previous results/errors
+            resultSection.style.display = 'none';
+            errorSection.style.display = 'none';
+
+            try {
+                const formData = new FormData(form);
+                
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultCode.textContent = result.converted_code;
+                    resultSection.style.display = 'block';
+                    
+                    // Scroll to results
+                    resultSection.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Highlight code
+                    Prism.highlightElement(resultCode);
+                } else {
+                    errorMessage.textContent = result.error;
+                    errorSection.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'An error occurred while converting the code. Please try again.';
+                errorSection.style.display = 'block';
+            } finally {
+                // Reset button state
+                convertBtn.querySelector('.convert-text').style.display = 'inline-block';
+                convertBtn.querySelector('.loading').style.display = 'none';
+                convertBtn.disabled = false;
+            }
+        });
+
+        // Copy to clipboard functionality
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(resultCode.textContent);
+                
+                // Show feedback
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.remove('btn-outline-secondary');
+                copyBtn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('btn-success');
+                    copyBtn.classList.add('btn-outline-secondary');
+                }, 2000);
+            } catch (error) {
+                alert('Failed to copy to clipboard');
+            }
+        });
+    </script>
+</body>
+</html>
